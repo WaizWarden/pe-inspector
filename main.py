@@ -2,8 +2,8 @@ import sys
 from textual.app import App, ComposeResult
 from textual.containers import ScrollableContainer, Horizontal
 from textual.widgets import Footer, DataTable, Label, Button, ContentSwitcher, ListView, ListItem
-from inspector import Inspector
 from CSS import STYLES
+from inspector import Inspector
 
 
 class SimpleInspectorUI(App):
@@ -21,13 +21,19 @@ class SimpleInspectorUI(App):
             yield Button("IAT (Imports)", id="btn-iat")
 
         with ContentSwitcher(initial="pane-entropy"):
-            with ScrollableContainer(id="pane-entropy", classes="pane"):
-                yield Label("[b]PE SECTIONS[/b]\n")
-                yield DataTable(id="sections-table")
+            with Horizontal(id="pane-entropy", classes="pane"):
+                with Horizontal(classes="split-container"):
+                    with ScrollableContainer(id="entropy-right-panel", classes="sub-panel"):
+                        yield Label("[b]PE SECTIONS[/b]\n")
+                        yield DataTable(id="sections-table")
+
+                    with ScrollableContainer(classes="sub-panel wide-panel"):
+                        yield Label("[b]General[/b]\n")
+                        yield Label(id="general-info")
 
             with Horizontal(id="pane-iat", classes="pane"):
-                with Horizontal(id="split-container"):
-                    with ScrollableContainer(id="left-panel", classes="sub-panel"):
+                with Horizontal(classes="split-container"):
+                    with ScrollableContainer(classes="sub-panel"):
                         yield Label("[b]Library Modules[/b]\n")
                         self.iat_data = self.inspector.get_iat_data()
 
@@ -37,7 +43,7 @@ class SimpleInspectorUI(App):
 
                         yield ListView(*list_items, id="dll-list")
 
-                    with ScrollableContainer(id="right-panel", classes="sub-panel"):
+                    with ScrollableContainer(id="iat-right-panel", classes="sub-panel wide-panel"):
                         yield Label("[b]Imported Functions[/b]\n")
                         yield DataTable(id="imports-table")
 
@@ -48,6 +54,16 @@ class SimpleInspectorUI(App):
         sec_table.add_columns("Section Name", "Entropy", "Size")
         sections = self.inspector.get_sections_entropy()
         sec_table.add_rows(sections)
+
+        general_label = self.query_one("#general-info", Label)
+        md5_hash = self.inspector.calculate_md5()
+        sha256_hash = self.inspector.calculate_sha256()
+        info_text = (
+            f"[b]MD5:[/b]\n{md5_hash}\n\n"
+            f"[b]SHA-256:[/b]\n{sha256_hash}\n"
+        )
+        general_label.update(info_text)
+
 
         imp_table = self.query_one("#imports-table", DataTable)
         imp_table.add_columns("Function Name", "Thunk Offset")
@@ -84,10 +100,12 @@ class SimpleInspectorUI(App):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
+        print("Usage: python main.py <executable>")
         sys.exit(1)
 
     inspector_backend = Inspector(sys.argv[1])
     if not inspector_backend.load_file():
+        print("Unable to read executable")
         sys.exit(1)
 
     app = SimpleInspectorUI(inspector_backend)

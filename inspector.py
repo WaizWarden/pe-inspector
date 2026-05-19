@@ -1,6 +1,6 @@
 import math
 import pefile
-
+import hashlib
 
 class Inspector:
     def __init__(self, filename: str):
@@ -54,6 +54,20 @@ class Inspector:
         except Exception:
             pass
         return iat_map
+
+    def calculate_sha256(self):
+        try:
+            with open(self.filename, "rb") as f:
+                return hashlib.file_digest(f, "sha256").hexdigest()
+        except Exception:
+            return -1
+
+    def calculate_md5(self):
+        try:
+            with open(self.filename, "rb") as f:
+                return hashlib.file_digest(f, "md5").hexdigest()
+        except Exception:
+            return -1
 
     @staticmethod
     def entropy(data) -> float:
