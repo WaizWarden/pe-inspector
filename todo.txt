@@ -1,6 +1,4 @@
 entropy & general section
-	hashes (md, sha256) 
-	some basic headers, e_lfanew, time of compilation
 	digital signature analysis - if its signed
 	entropy for whole file
 	filename

@@ -1,7 +1,10 @@
+import datetime
 import sys
+
 from textual.app import App, ComposeResult
 from textual.containers import ScrollableContainer, Horizontal
 from textual.widgets import Footer, DataTable, Label, Button, ContentSwitcher, ListView, ListItem
+
 from CSS import STYLES
 from inspector import Inspector
 
@@ -55,15 +58,29 @@ class SimpleInspectorUI(App):
         sections = self.inspector.get_sections_entropy()
         sec_table.add_rows(sections)
 
+        timestamp = self.inspector.pe.FILE_HEADER.TimeDateStamp
+        compile_time = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime(
+            '%Y-%m-%d %H:%M:%S UTC')
         general_label = self.query_one("#general-info", Label)
-        md5_hash = self.inspector.calculate_md5()
-        sha256_hash = self.inspector.calculate_sha256()
+        f"[b]Machine:[/b]   {self.inspector.pe.FILE_HEADER.Machine}\n\n"
+
+        machine = "N/A"
+        if int(self.inspector.pe.FILE_HEADER.Machine) == 34404:
+            machine = "64-bit"
+        elif int(self.inspector.pe.FILE_HEADER.Machine) == 332:
+            machine = "32-bit"
+
         info_text = (
-            f"[b]MD5:[/b]\n{md5_hash}\n\n"
-            f"[b]SHA-256:[/b]\n{sha256_hash}\n"
+            f"[b]MD5:[/b]\n{self.inspector.calculate_md5()}\n\n"
+            f"[b]SHA-256:[/b]\n{self.inspector.calculate_sha256()}\n\n\n"
+            f"[b]e_lfanew Offset:[/b]   {self.inspector.pe.DOS_HEADER.e_lfanew} Bytes\n"
+            f"[b]Machine:[/b]   {machine}\n"
+            f"[b]Compile Time:[/b]  {compile_time}\n"
+            f"[b]Entry Point (RVA):[/b]   0x{self.inspector.pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}\n"
+            f"[b]Image Base:[/b]    0x{self.inspector.pe.OPTIONAL_HEADER.ImageBase:08x}\n"
+            f"[b]Size in RAM:[/b]   {self.inspector.pe.OPTIONAL_HEADER.SizeOfImage:,} Bytes\n"
         )
         general_label.update(info_text)
-
 
         imp_table = self.query_one("#imports-table", DataTable)
         imp_table.add_columns("Function Name", "Thunk Offset")

@@ -1,6 +1,8 @@
-import math
-import pefile
 import hashlib
+import math
+
+import pefile
+
 
 class Inspector:
     def __init__(self, filename: str):
