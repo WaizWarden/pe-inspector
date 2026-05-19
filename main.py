@@ -3,52 +3,12 @@ from textual.app import App, ComposeResult
 from textual.containers import ScrollableContainer, Horizontal
 from textual.widgets import Footer, DataTable, Label, Button, ContentSwitcher, ListView, ListItem
 from inspector import Inspector
+from CSS import STYLES
 
 
 class SimpleInspectorUI(App):
-    theme = "gruvbox"
     BINDINGS = [("q", "quit", "Quit")]
-
-    CSS = """
-    Screen {
-        layout: grid;
-        grid-size: 1 2;
-        grid-rows: auto 1fr;
-    }
-    #top-bar {
-        column-span: 2;
-        height: 3;
-        background: $boost;
-        border-bottom: solid $accent;
-        padding: 0 2;
-        content-align: left middle;
-    }
-    ContentSwitcher {
-        height: 1fr;
-    }
-    .pane {
-        border: round $primary;
-        padding: 1;
-        margin: 1;
-        height: 100%;
-    }
-    #iat-split-container {
-        layout: horizontal;
-        height: 100%;
-    }
-    .iat-sub-panel {
-        width: 1fr;
-        height: 100%;
-        border: solid $secondary;
-        padding: 1;
-    }
-    #iat-left-panel {
-        width: 1fr;
-    }
-    #iat-right-panel {
-        width: 2fr;
-    }
-    """
+    CSS = STYLES
 
     def __init__(self, inspector: Inspector):
         super().__init__()
@@ -57,17 +17,17 @@ class SimpleInspectorUI(App):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="top-bar"):
-            yield Button("Shannon Entropy", id="btn-entropy", variant="primary")
+            yield Button("Entropy & Headers", id="btn-entropy", variant="primary")
             yield Button("IAT (Imports)", id="btn-iat")
 
         with ContentSwitcher(initial="pane-entropy"):
             with ScrollableContainer(id="pane-entropy", classes="pane"):
-                yield Label("[b]PE SECTIONS & METRICS[/b]\n")
+                yield Label("[b]PE SECTIONS[/b]\n")
                 yield DataTable(id="sections-table")
 
             with Horizontal(id="pane-iat", classes="pane"):
-                with Horizontal(id="iat-split-container"):
-                    with ScrollableContainer(id="iat-left-panel", classes="iat-sub-panel"):
+                with Horizontal(id="split-container"):
+                    with ScrollableContainer(id="left-panel", classes="sub-panel"):
                         yield Label("[b]Library Modules[/b]\n")
                         self.iat_data = self.inspector.get_iat_data()
 
@@ -77,7 +37,7 @@ class SimpleInspectorUI(App):
 
                         yield ListView(*list_items, id="dll-list")
 
-                    with ScrollableContainer(id="iat-right-panel", classes="iat-sub-panel"):
+                    with ScrollableContainer(id="right-panel", classes="sub-panel"):
                         yield Label("[b]Imported Functions[/b]\n")
                         yield DataTable(id="imports-table")
 
