@@ -23,6 +23,7 @@ class SimpleInspectorUI(App):
         with Horizontal(id="top-bar"):
             yield Button("Entropy & Headers", id="btn-entropy", variant="primary")
             yield Button("IAT (Imports)", id="btn-iat")
+            yield Button("Digital Signature", id="btn-signature")
 
         with ContentSwitcher(initial="pane-entropy"):
             with Horizontal(id="pane-entropy", classes="pane"):
@@ -50,6 +51,12 @@ class SimpleInspectorUI(App):
                     with ScrollableContainer(id="iat-right-panel", classes="sub-panel wide-panel"):
                         yield Label("[b]Imported Functions[/b]\n")
                         yield DataTable(id="imports-table")
+
+            with ContentSwitcher(id="pane-signature"):
+                with Horizontal(id="pane-entropy", classes="pane"):
+                    with Horizontal(classes="split-container"):
+                        with ScrollableContainer(id="entropy-right-panel", classes="sub-panel"):
+                            yield Label("[b]PE NIGGA[/b]\n")
 
         yield Footer()
 
@@ -97,6 +104,7 @@ class SimpleInspectorUI(App):
         switcher = self.query_one(ContentSwitcher)
         self.query_one("#btn-entropy", Button).variant = "default"
         self.query_one("#btn-iat", Button).variant = "default"
+        self.query_one("#btn-signature", Button).variant = "default"
 
         if event.button.id == "btn-entropy":
             event.button.variant = "primary"
@@ -104,6 +112,10 @@ class SimpleInspectorUI(App):
         elif event.button.id == "btn-iat":
             event.button.variant = "primary"
             switcher.current = "pane-iat"
+
+        elif event.button.id == "btn-signature":
+            event.button.variant = "primary"
+            switcher.current = "pane-signature"
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if event.list_view.id == "dll-list" and event.item is not None:
