@@ -15,7 +15,7 @@ A terminal UI tool for static analysis of Windows PE (Portable Executable) files
 ## Install Requirements
 
 ```
-pip install -r requirements
+pip install -r requirements.txt
 ```
 
 
