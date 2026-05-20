@@ -1,8 +1,5 @@
 entropy & general section
 	digital signature analysis - if its signed
-	entropy for whole file
-	filename
-	file size
 
 json export in pallete
 optional - virus total api

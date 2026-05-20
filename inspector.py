@@ -1,5 +1,6 @@
 import hashlib
 import math
+import os
 
 import pefile
 
@@ -18,8 +19,20 @@ class Inspector:
 
     def get_sections_entropy(self) -> list:
         results = []
-        if not self.pe:
-            return results
+
+        # Calculate entropy of whole file
+        try:
+            if self.filename and os.path.exists(self.filename):
+                with open(self.filename, "rb") as f:
+                    full_data = f.read()
+
+                full_entropy = self.entropy(full_data)
+                display_name = f"{os.path.basename(self.filename)}"
+                results.append((display_name, f"{full_entropy:.2f}"))
+        except Exception:
+            pass
+
+        # Calculate entropy of sections
         try:
             for section in self.pe.sections:
                 data = section.get_data()

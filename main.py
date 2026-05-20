@@ -1,4 +1,5 @@
 import datetime
+import os
 import sys
 
 from textual.app import App, ComposeResult
@@ -31,7 +32,7 @@ class SimpleInspectorUI(App):
                         yield DataTable(id="sections-table")
 
                     with ScrollableContainer(classes="sub-panel wide-panel"):
-                        yield Label("[b]General[/b]\n")
+                        # yield Label("[b]General[/b]\n")
                         yield Label(id="general-info")
 
             with Horizontal(id="pane-iat", classes="pane"):
@@ -72,7 +73,10 @@ class SimpleInspectorUI(App):
 
         info_text = (
             f"[b]MD5:[/b]\n{self.inspector.calculate_md5()}\n\n"
-            f"[b]SHA-256:[/b]\n{self.inspector.calculate_sha256()}\n\n\n"
+            f"[b]SHA-256:[/b]\n{self.inspector.calculate_sha256()}\n\n"
+            
+            f"[b]Filename:[/b]   {self.inspector.filename}\n"
+            f"[b]File Size:[/b]   {os.path.getsize(self.inspector.filename):,} Bytes\n\n"
             f"[b]e_lfanew Offset:[/b]   {self.inspector.pe.DOS_HEADER.e_lfanew} Bytes\n"
             f"[b]Machine:[/b]   {machine}\n"
             f"[b]Compile Time:[/b]  {compile_time}\n"
