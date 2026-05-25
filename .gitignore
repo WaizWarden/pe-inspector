@@ -1,4 +1,5 @@
-# IDE related
+# PROJECT related
+*.exe
 .idea
 
 # Byte-compiled / optimized / DLL files
