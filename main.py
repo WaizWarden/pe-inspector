@@ -132,6 +132,10 @@ class SimpleInspectorUI(App):
 
 
 if __name__ == "__main__":
+    if sys.version_info < (3, 11):
+        print("Invalid version of python. Version 3.11 and above is required.")
+        sys.exit(2)
+    
     if len(sys.argv) < 2:
         print("Usage: python main.py <executable>")
         sys.exit(1)

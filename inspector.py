@@ -12,7 +12,7 @@ class Inspector:
 
     def load_file(self) -> bool:
         try:
-            self.pe = pefile.PE(self.filename)
+            self.pe = pefile.PE(self.filename, fast_load=True)
             return True
         except Exception:
             return False
@@ -30,7 +30,7 @@ class Inspector:
                 display_name = f"{os.path.basename(self.filename)}"
                 results.append((display_name, f"{full_entropy:.2f}"))
         except Exception:
-            pass
+            print(f"Error while parsing file: {Exception}")
 
         # Calculate entropy of sections
         try:
@@ -41,7 +41,7 @@ class Inspector:
                 size = len(data)
                 results.append((name, f"{entropy:.2f}", f"{size} B"))
         except Exception:
-            pass
+            print(f"Error while parsing sections of file: {Exception}")
         return results
 
     def get_iat_data(self) -> dict:
@@ -67,7 +67,7 @@ class Inspector:
 
                 iat_map[dll_name] = funcs
         except Exception:
-            pass
+            print(f"Error while parsing IAT: {Exception}")
         return iat_map
 
     def calculate_sha256(self):
@@ -75,6 +75,7 @@ class Inspector:
             with open(self.filename, "rb") as f:
                 return hashlib.file_digest(f, "sha256").hexdigest()
         except Exception:
+            print(f"Error while reading SHA256: {Exception}")
             return -1
 
     def calculate_md5(self):
@@ -82,6 +83,7 @@ class Inspector:
             with open(self.filename, "rb") as f:
                 return hashlib.file_digest(f, "md5").hexdigest()
         except Exception:
+            print(f"Error while reading MD5: {Exception}")
             return -1
 
     @staticmethod
