@@ -1,20 +1,24 @@
 import hashlib
 import math
 import os
+import logging
 
 import pefile
+from signify.authenticode import *
 
 
 class Inspector:
     def __init__(self, filename: str):
         self.filename = filename
         self.pe = None
+        self.signed_pe = None
 
     def load_file(self) -> bool:
         try:
             self.pe = pefile.PE(self.filename, fast_load=True)
             return True
         except Exception:
+            logging.error(f"Failed to load file: {Exception}")
             return False
 
     def get_sections_entropy(self) -> list:
@@ -30,7 +34,7 @@ class Inspector:
                 display_name = f"{os.path.basename(self.filename)}"
                 results.append((display_name, f"{full_entropy:.2f}"))
         except Exception:
-            print(f"Error while parsing file: {Exception}")
+            logging.error(f"Error occurred while parsing file: {Exception}")
 
         # Calculate entropy of sections
         try:
@@ -41,7 +45,7 @@ class Inspector:
                 size = len(data)
                 results.append((name, f"{entropy:.2f}", f"{size} B"))
         except Exception:
-            print(f"Error while parsing sections of file: {Exception}")
+            logging.error(f"Error occurred while parsing sections of file: {Exception}")
         return results
 
     def get_iat_data(self) -> dict:
@@ -67,15 +71,62 @@ class Inspector:
 
                 iat_map[dll_name] = funcs
         except Exception:
-            print(f"Error while parsing IAT: {Exception}")
+            logging.error(f"Error occurred while parsing IAT: {Exception}")
         return iat_map
+
+    def get_signature(self) -> list:
+        signature = []
+        with open(self.filename, "rb") as f:
+            primary = {}
+            signed_file = AuthenticodeFile.from_stream(f)
+            status, err = signed_file.explain_verify()
+
+            if err:
+                return []
+
+            # primary signature
+            for signed_data in signed_file.signatures:
+                if signed_data.signer_info:
+                    primary["Signing time"] = signed_data.signer_info.signing_time
+                    primary["Serial Number"] = signed_data.signer_info.serial_number
+                    primary["Issuer"] = signed_data.signer_info.issuer
+
+                cs = signed_data.signer_info.countersigner
+                if cs and hasattr(cs, "signer_info"):
+                    primary["Countersigner Signing time"] = cs.signer_info.signing_time
+                    primary["Countersigner Serial Number"] = cs.signer_info.serial_number
+                    primary["Countersigner Issuer"] = cs.signer_info.issuer
+
+            signature.append(primary)
+
+            # embedded signature
+            embedded_signatures = list(
+            signed_file.iter_embedded_signatures(include_nested=True, ignore_parse_errors=True))
+            len(embedded_signatures)
+
+            for signature in embedded_signatures:
+                logging.info(signature.signer_info.publisher_info)
+                logging.info(signature.signer_info.signing_time)
+                logging.info(signature.signer_info.serial_number)
+                logging.info(signature.signer_info.issuer)
+
+                cs = signature.signer_info.countersigner
+                if cs and hasattr(cs, "signer_info") and cs.signer_info:
+                    logging.info(f"Embedded TSA Timestamp: {cs.signer_info.signing_time}")
+                    logging.info(f"Embedded TSA Serial Number: {cs.signer_info.serial_number}")
+                    logging.info(f"Embedded TSA Issuer: {cs.signer_info.issuer}")
+
+        if status != AuthenticodeVerificationResult.OK:
+            logging.error(f"Invalid: {err}")
+
+        return [primary]
 
     def calculate_sha256(self):
         try:
             with open(self.filename, "rb") as f:
                 return hashlib.file_digest(f, "sha256").hexdigest()
         except Exception:
-            print(f"Error while reading SHA256: {Exception}")
+            logging.error(f"Error occurred while reading SHA256: {Exception}")
             return -1
 
     def calculate_md5(self):
@@ -83,7 +134,7 @@ class Inspector:
             with open(self.filename, "rb") as f:
                 return hashlib.file_digest(f, "md5").hexdigest()
         except Exception:
-            print(f"Error while reading MD5: {Exception}")
+            logging.error(f"Error occurred while reading MD5: {Exception}")
             return -1
 
     @staticmethod

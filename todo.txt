@@ -1,8 +1,2 @@
-entropy & general section
-	digital signature analysis - if its signed
-
+digital signature analysis - secondary
 json export in pallete
-optional - virus total api
-optional - ai integration - upload json
-
-

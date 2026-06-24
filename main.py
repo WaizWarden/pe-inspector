@@ -33,7 +33,7 @@ class SimpleInspectorUI(App):
                         yield DataTable(id="sections-table")
 
                     with ScrollableContainer(classes="sub-panel wide-panel"):
-                        # yield Label("[b]General[/b]\n")
+                        yield Label("[b]General[/b]\n")
                         yield Label(id="general-info")
 
             with Horizontal(id="pane-iat", classes="pane"):
@@ -52,11 +52,10 @@ class SimpleInspectorUI(App):
                         yield Label("[b]Imported Functions[/b]\n")
                         yield DataTable(id="imports-table")
 
-            with ContentSwitcher(id="pane-signature"):
-                with Horizontal(id="pane-entropy", classes="pane"):
-                    with Horizontal(classes="split-container"):
-                        with ScrollableContainer(id="entropy-right-panel", classes="sub-panel"):
-                            yield Label("[b]PE NIGGA[/b]\n")
+            with Horizontal(classes="pane", id="pane-signature"):
+                with ScrollableContainer():
+                    yield Label("[b]Primary Signature[/b]\n")
+                    yield Label(id="cert-info-label")
 
         yield Footer()
 
@@ -66,35 +65,8 @@ class SimpleInspectorUI(App):
         sections = self.inspector.get_sections_entropy()
         sec_table.add_rows(sections)
 
-        timestamp = self.inspector.pe.FILE_HEADER.TimeDateStamp
-        compile_time = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime(
-            '%Y-%m-%d %H:%M:%S UTC')
-        general_label = self.query_one("#general-info", Label)
-        f"[b]Machine:[/b]   {self.inspector.pe.FILE_HEADER.Machine}\n\n"
-
-        machine = "N/A"
-        if int(self.inspector.pe.FILE_HEADER.Machine) == 34404:
-            machine = "64-bit"
-        elif int(self.inspector.pe.FILE_HEADER.Machine) == 332:
-            machine = "32-bit"
-
-        info_text = (
-            f"[b]MD5:[/b]\n{self.inspector.calculate_md5()}\n\n"
-            f"[b]SHA-256:[/b]\n{self.inspector.calculate_sha256()}\n\n"
-            
-            f"[b]Filename:[/b]   {self.inspector.filename}\n"
-            f"[b]File Size:[/b]   {os.path.getsize(self.inspector.filename):,} Bytes\n\n"
-            f"[b]e_lfanew Offset:[/b]   {self.inspector.pe.DOS_HEADER.e_lfanew} Bytes\n"
-            f"[b]Machine:[/b]   {machine}\n"
-            f"[b]Compile Time:[/b]  {compile_time}\n"
-            f"[b]Entry Point (RVA):[/b]   0x{self.inspector.pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}\n"
-            f"[b]Image Base:[/b]    0x{self.inspector.pe.OPTIONAL_HEADER.ImageBase:08x}\n"
-            f"[b]Size in RAM:[/b]   {self.inspector.pe.OPTIONAL_HEADER.SizeOfImage:,} Bytes\n"
-        )
-        general_label.update(info_text)
-
-        imp_table = self.query_one("#imports-table", DataTable)
-        imp_table.add_columns("Function Name", "Thunk Offset")
+        self.update_general()
+        self.update_certificates()
 
         if self.iat_data:
             first_dll = list(self.iat_data.keys())[0]
@@ -112,7 +84,6 @@ class SimpleInspectorUI(App):
         elif event.button.id == "btn-iat":
             event.button.variant = "primary"
             switcher.current = "pane-iat"
-
         elif event.button.id == "btn-signature":
             event.button.variant = "primary"
             switcher.current = "pane-signature"
@@ -130,12 +101,64 @@ class SimpleInspectorUI(App):
         table.clear()
         table.add_rows(self.iat_data.get(dll_name, []))
 
+    def update_certificates(self):
+        cert_label = self.query_one("#cert-info-label", Label)
+        result = self.inspector.get_signature()
+
+        if len(result) == 0:
+            cert_info = "[red][b]NO CERTIFICATE FOUND[/b][/red]\n\n"
+
+        else:
+            sig_data = result[0]
+            cert_info = (
+                f"[b]Signing Time:[/b]  {sig_data.get('Signing time')}\n"
+                f"[b]Serial Number:[/b] {sig_data.get('Serial Number')}\n"
+                f"[b]Issuer:[/b]        {sig_data.get('Issuer')}\n\n"
+
+                f"[b]Countersigner Signing time:[/b]  {sig_data.get('Countersigner Signing time')}\n"
+                f"[b]Countersigner Serial Number:[/b] {sig_data.get('Countersigner Serial Number')}\n"
+                f"[b]Countersigner Issuer:[/b]        {sig_data.get('Countersigner Issuer')}\n"
+            )
+
+        cert_label.update(cert_info)
+
+    def update_general(self):
+        timestamp = self.inspector.pe.FILE_HEADER.TimeDateStamp
+        compile_time = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime(
+            '%Y-%m-%d %H:%M:%S UTC')
+        general_label = self.query_one("#general-info", Label)
+        f"[b]Machine:[/b]   {self.inspector.pe.FILE_HEADER.Machine}\n\n"
+
+        machine = "N/A"
+        if int(self.inspector.pe.FILE_HEADER.Machine) == 34404:
+            machine = "64-bit"
+        elif int(self.inspector.pe.FILE_HEADER.Machine) == 332:
+            machine = "32-bit"
+
+        info_text = (
+            f"[b]MD5:[/b]\n{self.inspector.calculate_md5()}\n\n"
+            f"[b]SHA-256:[/b]\n{self.inspector.calculate_sha256()}\n\n"
+
+            f"[b]Filename:[/b]          {self.inspector.filename}\n"
+            f"[b]File Size:[/b]         {os.path.getsize(self.inspector.filename):,} Bytes\n\n"
+            f"[b]e_lfanew Offset:[/b]   {self.inspector.pe.DOS_HEADER.e_lfanew} Bytes\n"
+            f"[b]Machine:[/b]           {machine}\n"
+            f"[b]Compile Time:[/b]      {compile_time}\n"
+            f"[b]Entry Point (RVA):[/b] 0x{self.inspector.pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}\n"
+            f"[b]Image Base:[/b]        0x{self.inspector.pe.OPTIONAL_HEADER.ImageBase:08x}\n"
+            f"[b]Size in RAM:[/b]       {self.inspector.pe.OPTIONAL_HEADER.SizeOfImage:,} Bytes\n"
+        )
+        general_label.update(info_text)
+
+        imp_table = self.query_one("#imports-table", DataTable)
+        imp_table.add_columns("Function Name", "Thunk Offset")
+
 
 if __name__ == "__main__":
     if sys.version_info < (3, 11):
         print("Invalid version of python. Version 3.11 and above is required.")
         sys.exit(2)
-    
+
     if len(sys.argv) < 2:
         print("Usage: python main.py <executable>")
         sys.exit(1)
