@@ -1,3 +1,4 @@
 pefile
 textual
 Signify
+numpy

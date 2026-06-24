@@ -1,9 +1,8 @@
 import hashlib
-import math
-import os
 import logging
 
 import pefile
+import numpy as np
 from signify.authenticode import *
 
 
@@ -24,15 +23,19 @@ class Inspector:
     def get_sections_entropy(self) -> list:
         results = []
 
+        def _calculate_entropy(buffer) -> float:
+            if not buffer:
+                return 0.0
+            data = np.frombuffer(buffer, dtype=np.uint8)
+            counts = np.bincount(data, minlength=256)
+            probs = counts[counts > 0] / len(data)
+            return float(-np.sum(probs * np.log2(probs)))
+
         # Calculate entropy of whole file
         try:
-            if self.filename and os.path.exists(self.filename):
-                with open(self.filename, "rb") as f:
-                    full_data = f.read()
-
-                full_entropy = self.entropy(full_data)
-                display_name = f"{os.path.basename(self.filename)}"
-                results.append((display_name, f"{full_entropy:.2f}"))
+            full_data = self.pe.__data__  # __data__ contains whole loaded file
+            full_entropy = _calculate_entropy(full_data)
+            results.append((self.filename, f"{full_entropy:.2f}"))
         except Exception:
             logging.error(f"Error occurred while parsing file: {Exception}")
 
@@ -41,8 +44,9 @@ class Inspector:
             for section in self.pe.sections:
                 data = section.get_data()
                 name = section.Name.decode(errors='ignore').strip('\x00')
-                entropy = self.entropy(data)
                 size = len(data)
+
+                entropy = _calculate_entropy(data)
                 results.append((name, f"{entropy:.2f}", f"{size} B"))
         except Exception:
             logging.error(f"Error occurred while parsing sections of file: {Exception}")
@@ -101,7 +105,7 @@ class Inspector:
 
             # embedded signature
             embedded_signatures = list(
-            signed_file.iter_embedded_signatures(include_nested=True, ignore_parse_errors=True))
+                signed_file.iter_embedded_signatures(include_nested=True, ignore_parse_errors=True))
             len(embedded_signatures)
 
             for signature in embedded_signatures:
@@ -136,13 +140,3 @@ class Inspector:
         except Exception:
             logging.error(f"Error occurred while reading MD5: {Exception}")
             return -1
-
-    @staticmethod
-    def entropy(data) -> float:
-        if not data:
-            return 0.0
-        counts = [0] * 256
-        for b in data:
-            counts[b] += 1
-        n = len(data)
-        return -sum((c / n) * math.log2(c / n) for c in counts if c > 0)
