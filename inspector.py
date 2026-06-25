@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import pathlib
 
 import pefile
 import numpy as np
@@ -16,8 +17,8 @@ class Inspector:
         try:
             self.pe = pefile.PE(self.filename, fast_load=True)
             return True
-        except Exception:
-            logging.error(f"Failed to load file: {Exception}")
+        except Exception as e:
+            logging.error(f"Failed to load file: {e}")
             return False
 
     def get_sections_entropy(self) -> list:
@@ -36,8 +37,8 @@ class Inspector:
             full_data = self.pe.__data__  # __data__ contains whole loaded file
             full_entropy = _calculate_entropy(full_data)
             results.append((self.filename, f"{full_entropy:.2f}"))
-        except Exception:
-            logging.error(f"Error occurred while parsing file: {Exception}")
+        except Exception as e:
+            logging.error(f"Error occurred while parsing file: {e}")
 
         # Calculate entropy of sections
         try:
@@ -48,8 +49,8 @@ class Inspector:
 
                 entropy = _calculate_entropy(data)
                 results.append((name, f"{entropy:.2f}", f"{size} B"))
-        except Exception:
-            logging.error(f"Error occurred while parsing sections of file: {Exception}")
+        except Exception as e:
+            logging.error(f"Error occurred while parsing sections of file: {e}")
         return results
 
     def get_iat_data(self) -> dict:
@@ -74,19 +75,32 @@ class Inspector:
                     funcs.append((func_name, thunk_addr))
 
                 iat_map[dll_name] = funcs
-        except Exception:
-            logging.error(f"Error occurred while parsing IAT: {Exception}")
+        except Exception as e:
+            logging.error(f"Error occurred while parsing IAT: {e}")
         return iat_map
 
     def get_signature(self) -> list:
         signature = []
         with open(self.filename, "rb") as f:
             primary = {}
-            signed_file = AuthenticodeFile.from_stream(f)
-            status, err = signed_file.explain_verify()
-
-            if err:
+            try:
+                signed_file = AuthenticodeFile.from_stream(f)
+                status, err = signed_file.explain_verify()
+            except Exception as e:
+                logging.error(f"File is unsigned or parsing failed: {e}")
                 return []
+
+            if status == AuthenticodeVerificationResult.NOT_SIGNED:
+                primary["Trust Status"] = "Not Signed"
+                return [primary]
+            elif status == AuthenticodeVerificationResult.OK:
+                primary["Trust Status"] = "Verified & Trusted Root"
+            elif status == AuthenticodeVerificationResult.CERTIFICATE_ERROR:
+                primary["Trust Status"] = "Untrusted/Fake Root (Possible Self-Signed)"
+            elif status == AuthenticodeVerificationResult.INVALID_DIGEST:
+                primary["Trust Status"] = "Tampered/Modified Binary"
+            else:
+                primary["Trust Status"] = f"Failed ({status.name})"
 
             # primary signature
             for signed_data in signed_file.signatures:
@@ -129,14 +143,14 @@ class Inspector:
         try:
             with open(self.filename, "rb") as f:
                 return hashlib.file_digest(f, "sha256").hexdigest()
-        except Exception:
-            logging.error(f"Error occurred while reading SHA256: {Exception}")
+        except Exception as e:
+            logging.error(f"Error occurred while reading SHA256: {e}")
             return -1
 
     def calculate_md5(self):
         try:
             with open(self.filename, "rb") as f:
                 return hashlib.file_digest(f, "md5").hexdigest()
-        except Exception:
-            logging.error(f"Error occurred while reading MD5: {Exception}")
+        except Exception as e:
+            logging.error(f"Error occurred while reading MD5: {e}")
             return -1

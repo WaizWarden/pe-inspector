@@ -54,7 +54,7 @@ class SimpleInspectorUI(App):
 
             with Horizontal(classes="pane", id="pane-signature"):
                 with ScrollableContainer():
-                    yield Label("[b]Primary Signature[/b]\n")
+                    yield Label("[b]Primary Signature[/b]\n\n")
                     yield Label(id="cert-info-label")
 
         yield Footer()
@@ -111,6 +111,7 @@ class SimpleInspectorUI(App):
         else:
             sig_data = result[0]
             cert_info = (
+                f"[b]Trust Status:[/b]  {sig_data.get('Trust Status')}\n\n"
                 f"[b]Signing Time:[/b]  {sig_data.get('Signing time')}\n"
                 f"[b]Serial Number:[/b] {sig_data.get('Serial Number')}\n"
                 f"[b]Issuer:[/b]        {sig_data.get('Issuer')}\n\n"
