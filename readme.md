@@ -5,10 +5,11 @@ A terminal UI tool for static analysis of Windows PE (Portable Executable) files
 ***
 
 ## Features
-- **Entropy analysis** — calculates Shannon entropy for the whole file and each PE section
-- **PE headers** — displays general metadata: MD5/SHA-256 hashes, file size, compile timestamp, machine architecture (32/64-bit), entry point (RVA), image base, in-memory size
-- **IAT viewer** — lists all imported DLLs and their imported functions with thunk offsets
-- **Digital signature pane** — WIP
+- **Entropy analysis** - calculates Shannon entropy for the whole file and each PE section
+- **PE headers** - displays general metadata: MD5/SHA-256 hashes, file size, compile timestamp, machine architecture (32/64-bit), entry point (RVA), image base, in-memory size
+- **IAT viewer** - lists all imported DLLs and their imported functions with thunk offsets
+- **Digital signature pane** - primary signature extraction
+- **Json export** - You can export gathered data as JSON
 
 ***
 
