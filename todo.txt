@@ -1,2 +1,0 @@
-digital signature analysis - secondary
-json export in pallete

@@ -1,16 +1,18 @@
-import datetime
-import os
 import sys
+import json
 
-from textual.app import App, ComposeResult
+from signify.x509.certificates import CertificateName
+from textual.app import App, ComposeResult, SystemCommand
 from textual.containers import ScrollableContainer, Horizontal
 from textual.widgets import Footer, DataTable, Label, Button, ContentSwitcher, ListView, ListItem
+from textual.screen import Screen
+from typing import Iterable
 
 from CSS import STYLES
 from inspector import Inspector
 
 
-class SimpleInspectorUI(App):
+class InspectorApp(App):
     BINDINGS = [("q", "quit", "Quit")]
     CSS = STYLES
 
@@ -18,6 +20,30 @@ class SimpleInspectorUI(App):
         super().__init__()
         self.inspector = inspector
         self.iat_data = {}
+
+    def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
+        for command in super().get_system_commands(screen):
+            if command.title in ("Minimize", "Maximize", "Keys", "Theme", "Screenshot", "Quit"):
+                continue
+            yield command
+
+        yield SystemCommand("Export JSON", "Exports data as json file", self.json_callback)
+
+    def json_callback(self) -> None:
+        try:
+            # CertificateName is un-serializable
+            # Convert it to string
+            def fallback(obj):
+                if isinstance(obj, CertificateName):
+                    return str(obj)
+                return repr(obj)
+
+            with open("export.json", "w", encoding="utf-8") as f:
+                json.dump(self.inspector.result, f, default=fallback, indent=1)
+
+            self.notify("Export complete: export.json")
+        except Exception as e:
+            self.notify(f"Export failed: {str(e)}", severity="error")
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="top-bar"):
@@ -40,7 +66,8 @@ class SimpleInspectorUI(App):
                 with Horizontal(classes="split-container"):
                     with ScrollableContainer(classes="sub-panel"):
                         yield Label("[b]Library Modules[/b]\n")
-                        self.iat_data = self.inspector.get_iat_data()
+                        self.inspector.get_iat_data()
+                        self.iat_data = self.inspector.result["IAT"]
 
                         list_items = []
                         for index, dll in enumerate(self.iat_data.keys()):
@@ -62,7 +89,9 @@ class SimpleInspectorUI(App):
     def on_mount(self) -> None:
         sec_table = self.query_one("#sections-table", DataTable)
         sec_table.add_columns("Section Name", "Entropy", "Size")
-        sections = self.inspector.get_sections_entropy()
+        self.inspector.get_sections_entropy()
+        sections = self.inspector.result["entropy"]
+
         sec_table.add_rows(sections)
 
         self.update_general()
@@ -103,7 +132,8 @@ class SimpleInspectorUI(App):
 
     def update_certificates(self):
         cert_label = self.query_one("#cert-info-label", Label)
-        result = self.inspector.get_signature()
+        self.inspector.get_signature()
+        result = self.inspector.result["signature"]
 
         if len(result) == 0:
             cert_info = "[red][b]NO CERTIFICATE FOUND[/b][/red]\n\n"
@@ -124,30 +154,21 @@ class SimpleInspectorUI(App):
         cert_label.update(cert_info)
 
     def update_general(self):
-        timestamp = self.inspector.pe.FILE_HEADER.TimeDateStamp
-        compile_time = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime(
-            '%Y-%m-%d %H:%M:%S UTC')
+        self.inspector.get_general_info()
         general_label = self.query_one("#general-info", Label)
-        f"[b]Machine:[/b]   {self.inspector.pe.FILE_HEADER.Machine}\n\n"
-
-        machine = "N/A"
-        if int(self.inspector.pe.FILE_HEADER.Machine) == 34404:
-            machine = "64-bit"
-        elif int(self.inspector.pe.FILE_HEADER.Machine) == 332:
-            machine = "32-bit"
+        general_data = self.inspector.result["general"]
 
         info_text = (
-            f"[b]MD5:[/b]\n{self.inspector.calculate_md5()}\n\n"
-            f"[b]SHA-256:[/b]\n{self.inspector.calculate_sha256()}\n\n"
-
-            f"[b]Filename:[/b]          {self.inspector.filename}\n"
-            f"[b]File Size:[/b]         {os.path.getsize(self.inspector.filename):,} Bytes\n\n"
-            f"[b]e_lfanew Offset:[/b]   {self.inspector.pe.DOS_HEADER.e_lfanew} Bytes\n"
-            f"[b]Machine:[/b]           {machine}\n"
-            f"[b]Compile Time:[/b]      {compile_time}\n"
-            f"[b]Entry Point (RVA):[/b] 0x{self.inspector.pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}\n"
-            f"[b]Image Base:[/b]        0x{self.inspector.pe.OPTIONAL_HEADER.ImageBase:08x}\n"
-            f"[b]Size in RAM:[/b]       {self.inspector.pe.OPTIONAL_HEADER.SizeOfImage:,} Bytes\n"
+            f"[b]MD5:[/b]\n{general_data['MD5']}\n\n"
+            f"[b]SHA-256:[/b]\n{general_data['SHA-256']}\n\n"
+            f"[b]Filename:[/b]          {general_data['Filename']}\n"
+            f"[b]File Size:[/b]         {general_data['File Size (Bytes)']:,} Bytes\n\n"
+            f"[b]e_lfanew Offset:[/b]   {general_data['e_lfanew Offset (Bytes)']} Bytes\n"
+            f"[b]Machine:[/b]           {general_data['Machine']}\n"
+            f"[b]Compile Time:[/b]      {general_data['Compile Time']}\n"
+            f"[b]Entry Point (RVA):[/b] {general_data['Entry Point (RVA)']}\n"
+            f"[b]Image Base:[/b]        {general_data['Image Base']}\n"
+            f"[b]Size in RAM:[/b]       {general_data['Size in RAM (Bytes)']:,} Bytes\n"
         )
         general_label.update(info_text)
 
@@ -169,5 +190,5 @@ if __name__ == "__main__":
         print("Unable to read executable")
         sys.exit(1)
 
-    app = SimpleInspectorUI(inspector_backend)
+    app = InspectorApp(inspector_backend)
     app.run()

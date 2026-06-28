@@ -1,7 +1,7 @@
 import hashlib
 import logging
-import pathlib
-
+import os
+import datetime
 import pefile
 import numpy as np
 from signify.authenticode import *
@@ -12,6 +12,13 @@ class Inspector:
         self.filename = filename
         self.pe = None
         self.signed_pe = None
+        self.result = {
+            "general": {},
+            "signature": [],
+            "entropy": [],
+            "IAT": {}
+
+        }
 
     def load_file(self) -> bool:
         try:
@@ -21,7 +28,7 @@ class Inspector:
             logging.error(f"Failed to load file: {e}")
             return False
 
-    def get_sections_entropy(self) -> list:
+    def get_sections_entropy(self) -> None:
         results = []
 
         def _calculate_entropy(buffer) -> float:
@@ -51,16 +58,16 @@ class Inspector:
                 results.append((name, f"{entropy:.2f}", f"{size} B"))
         except Exception as e:
             logging.error(f"Error occurred while parsing sections of file: {e}")
-        return results
+        self.result["entropy"] = results
 
-    def get_iat_data(self) -> dict:
+    def get_iat_data(self) -> None:
         iat_map = {}
         if not self.pe:
-            return iat_map
+            self.result["IAT"] = iat_map
         try:
             self.pe.parse_data_directories()
             if not hasattr(self.pe, 'DIRECTORY_ENTRY_IMPORT'):
-                return iat_map
+                self.result["IAT"] = iat_map
 
             for entry in self.pe.DIRECTORY_ENTRY_IMPORT:
                 dll_name = entry.dll.decode('utf-8', errors='ignore')
@@ -77,9 +84,10 @@ class Inspector:
                 iat_map[dll_name] = funcs
         except Exception as e:
             logging.error(f"Error occurred while parsing IAT: {e}")
-        return iat_map
 
-    def get_signature(self) -> list:
+        self.result["IAT"] = iat_map
+
+    def get_signature(self) -> None:
         signature = []
         with open(self.filename, "rb") as f:
             primary = {}
@@ -88,11 +96,11 @@ class Inspector:
                 status, err = signed_file.explain_verify()
             except Exception as e:
                 logging.error(f"File is unsigned or parsing failed: {e}")
-                return []
+                self.result["signature"] = []
 
             if status == AuthenticodeVerificationResult.NOT_SIGNED:
                 primary["Trust Status"] = "Not Signed"
-                return [primary]
+                self.result["signature"] = [primary]
             elif status == AuthenticodeVerificationResult.OK:
                 primary["Trust Status"] = "Verified & Trusted Root"
             elif status == AuthenticodeVerificationResult.CERTIFICATE_ERROR:
@@ -117,27 +125,34 @@ class Inspector:
 
             signature.append(primary)
 
-            # embedded signature
-            embedded_signatures = list(
-                signed_file.iter_embedded_signatures(include_nested=True, ignore_parse_errors=True))
-            len(embedded_signatures)
+        self.result["signature"] = [primary]
 
-            for signature in embedded_signatures:
-                logging.info(signature.signer_info.publisher_info)
-                logging.info(signature.signer_info.signing_time)
-                logging.info(signature.signer_info.serial_number)
-                logging.info(signature.signer_info.issuer)
+    def get_general_info(self):
 
-                cs = signature.signer_info.countersigner
-                if cs and hasattr(cs, "signer_info") and cs.signer_info:
-                    logging.info(f"Embedded TSA Timestamp: {cs.signer_info.signing_time}")
-                    logging.info(f"Embedded TSA Serial Number: {cs.signer_info.serial_number}")
-                    logging.info(f"Embedded TSA Issuer: {cs.signer_info.issuer}")
+        machine = "N/A"
+        if int(self.pe.FILE_HEADER.Machine) == 34404:
+            machine = "64-bit"
+        elif int(self.pe.FILE_HEADER.Machine) == 332:
+            machine = "32-bit"
 
-        if status != AuthenticodeVerificationResult.OK:
-            logging.error(f"Invalid: {err}")
+        timestamp = self.pe.FILE_HEADER.TimeDateStamp
+        compile_time = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).strftime(
+            '%Y-%m-%d %H:%M:%S UTC')
 
-        return [primary]
+        general = {
+            "MD5": self.calculate_md5(),
+            "SHA-256": self.calculate_sha256(),
+            "Filename": self.filename,
+            "File Size (Bytes)": os.path.getsize(self.filename),
+            "e_lfanew Offset (Bytes)": self.pe.DOS_HEADER.e_lfanew,
+            "Machine": machine,
+            "Compile Time": compile_time,
+            "Entry Point (RVA)": f"0x{self.pe.OPTIONAL_HEADER.AddressOfEntryPoint:08x}",
+            "Image Base": f"0x{self.pe.OPTIONAL_HEADER.ImageBase:08x}",
+            "Size in RAM (Bytes)": self.pe.OPTIONAL_HEADER.SizeOfImage
+        }
+
+        self.result["general"] = general
 
     def calculate_sha256(self):
         try:
