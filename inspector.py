@@ -39,11 +39,20 @@ class Inspector:
             probs = counts[counts > 0] / len(data)
             return float(-np.sum(probs * np.log2(probs)))
 
+        def _get_characteristic(pe_section) -> str:
+            char = pe_section.Characteristics
+
+            can_read = "R" if char & 0x40000000 else "-"
+            can_write = "W" if char & 0x80000000 else "-"
+            can_exec = "X" if char & 0x20000000 else "-"
+
+            return can_read + can_write + can_exec
+
         # Calculate entropy of whole file
         try:
             full_data = self.pe.__data__  # __data__ contains whole loaded file
             full_entropy = _calculate_entropy(full_data)
-            results.append((self.filename, f"{full_entropy:.2f}"))
+            results.append((self.filename, "", f"{full_entropy:.2f}"))
         except Exception as e:
             logging.error(f"Error occurred while parsing file: {e}")
 
@@ -55,7 +64,7 @@ class Inspector:
                 size = len(data)
 
                 entropy = _calculate_entropy(data)
-                results.append((name, f"{entropy:.2f}", f"{size} B"))
+                results.append((name, _get_characteristic(section) , f"{entropy:.2f}", f"{size} B"))
         except Exception as e:
             logging.error(f"Error occurred while parsing sections of file: {e}")
         self.result["entropy"] = results
@@ -142,6 +151,7 @@ class Inspector:
         general = {
             "MD5": self.calculate_md5(),
             "SHA-256": self.calculate_sha256(),
+            "Imphash": self.pe.get_imphash(),
             "Filename": self.filename,
             "File Size (Bytes)": os.path.getsize(self.filename),
             "e_lfanew Offset (Bytes)": self.pe.DOS_HEADER.e_lfanew,

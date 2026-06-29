@@ -88,7 +88,7 @@ class InspectorApp(App):
 
     def on_mount(self) -> None:
         sec_table = self.query_one("#sections-table", DataTable)
-        sec_table.add_columns("Section Name", "Entropy", "Size")
+        sec_table.add_columns("Section Name", "Characteristics", "Entropy", "Size")
         self.inspector.get_sections_entropy()
         sections = self.inspector.result["entropy"]
 
@@ -159,10 +159,11 @@ class InspectorApp(App):
         general_data = self.inspector.result["general"]
 
         info_text = (
-            f"[b]MD5:[/b]\n{general_data['MD5']}\n\n"
-            f"[b]SHA-256:[/b]\n{general_data['SHA-256']}\n\n"
+            f"[b]MD5:[/b]               {general_data['MD5']}\n"
+            f"[b]SHA-256:[/b]           {general_data['SHA-256']}\n"
+            f"[b]Imphash:[/b]           {general_data['Imphash']}\n\n"
             f"[b]Filename:[/b]          {general_data['Filename']}\n"
-            f"[b]File Size:[/b]         {general_data['File Size (Bytes)']:,} Bytes\n\n"
+            f"[b]File Size:[/b]         {general_data['File Size (Bytes)']:,} Bytes\n"
             f"[b]e_lfanew Offset:[/b]   {general_data['e_lfanew Offset (Bytes)']} Bytes\n"
             f"[b]Machine:[/b]           {general_data['Machine']}\n"
             f"[b]Compile Time:[/b]      {general_data['Compile Time']}\n"

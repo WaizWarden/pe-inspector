@@ -1,3 +1,1 @@
-Section Characteristics
-Imphash
 string extraction
