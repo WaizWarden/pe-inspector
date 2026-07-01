@@ -21,11 +21,6 @@ pip install -r requirements.txt
 python main.py <path/to/executable.exe>
 ```
 
-**Example:**
-```bash
-python main.py C:\Windows\System32\notepad.exe
-```
-
 ***
 ## Project Structure
 ```
